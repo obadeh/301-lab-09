@@ -18,6 +18,7 @@ app.use( cors() );
 app.get('/location', locationHandler);
 app.get('/weather', weatherHandler);
 app.get('/events',eventHandler);
+app.get('/movies',moviesHandler);
 
 function locationHandler(req,res) {
   // Query String = ?a=b&c=d
@@ -107,6 +108,29 @@ function eventHandler(req,res) {
     this.summary=day.description;  
 }
   
+
+function moviesHandler(){
+    getMovies(req.query.data)
+    .then( weatherData => res.status(200).json(weatherData) );
+
+}
+
+function getMovies(){
+    const url = `https://api.themoviedb.org/3/movie/550?api_key=${process.env.MOVIES_KEY}`;
+    return superagent.get(url)
+      .then( data => {
+        let eventA = JSON.parse(data.text);
+
+        console.log('data : ', eventA);
+        return eventA.events.event.map( (day) => {
+            console.log({day});
+          return new Event(day);
+        });
+      });
+
+}
+
+
 
 
 
