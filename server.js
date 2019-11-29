@@ -13,11 +13,25 @@ const app = express();
 
 app.use( cors() );
 
+/// from modules
+
+// const client=require('./mudules/client.js');
+// const location=require('./mudules/location.js');
+// const weather=require('./mudules/weather.js');
+// const events=require('./mudules/events.js');
+// const yelp=require('./mudules/yelp.js');
+// const trails=require('./mudules/trails.js');
+// const movies=require('./mudules/movies.js');
+
+
+
 // make the the callBack function a seprate fuctions :locationHandler,weatherHandler
 
 app.get('/location', locationHandler);
 app.get('/weather', weatherHandler);
 app.get('/events',eventHandler);
+// app.get('/yelp',yelpHandler);
+// app.get('/trails',trailsHandler);
 app.get('/movies',moviesHandler);
 
 function locationHandler(req,res) {
@@ -93,9 +107,9 @@ function eventHandler(req,res) {
       .then( data => {
         let eventA = JSON.parse(data.text);
 
-        console.log('data : ', eventA);
+        // console.log('data : ', eventA);
         return eventA.events.event.map( (day) => {
-            console.log({day});
+            // console.log({day});
           return new Event(day);
         });
       });
@@ -109,31 +123,54 @@ function eventHandler(req,res) {
 }
   
 
-function moviesHandler(){
-    getMovies(req.query.data)
+function moviesHandler(req,res){
+  // console.log('req : ', req);
+  // console.log('query : ', query);
+  console.log('req.query.data : ', req.query.data.search_query);
+    getMovies(req.query.data.search_query)
     .then( weatherData => res.status(200).json(weatherData) );
 
 }
 
-function getMovies(){
-    const url = `https://api.themoviedb.org/3/movie/550?api_key=${process.env.MOVIES_KEY}`;
+function getMovies(location){
+    const url = `https://api.themoviedb.org/3/search/movie/?api_key=${process.env.MOVIES_KEY}&query=${location}`;
     return superagent.get(url)
       .then( data => {
-        let eventA = JSON.parse(data.text);
-
-        console.log('data : ', eventA);
-        return eventA.events.event.map( (day) => {
-            console.log({day});
-          return new Event(day);
-        });
+        parseData(data.body);
       });
 
 }
 
+function parseData(data){
+  try{
+    // console.log('data : ', data.results);
+    const movies= data.results.map((movie)=>{
+      let moviesObg =new Movies(movie)
+      console.log('movie : ', moviesObg);
+      return moviesObg;
+    });
+    return Promise.resolve(movies);
 
+  }catch(e){return Promise.reject(e);
+  }
+}
 
+// console.log('data : ', eventA);
+// return eventA.events.event.map( (day) => {
+//     console.log({day});
+//   return new Event(day);
+// });
 
-
+function Movies(movie){
+  this.tableName='movies';
+  this.title=movie.title;
+  this.overview=movie.overview;
+  this.average_votes=movie.vote_average;
+  this.total_votes=' '
+  this.image_url='https://image.tmdb.org/t/p/w500' + movie&&movie.poster_path;
+  this.popularity=movie.popularity;
+  this.released_on=movie&&movie.release_date;
+}
 
 
 
