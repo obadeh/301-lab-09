@@ -33,6 +33,7 @@ app.get('/events',eventHandler);
 // app.get('/yelp',yelpHandler);
 // app.get('/trails',trailsHandler);
 app.get('/movies',moviesHandler);
+app.get('/yelp',yelpHandler)
 
 function locationHandler(req,res) {
   // Query String = ?a=b&c=d
@@ -128,7 +129,7 @@ function moviesHandler(req,res){
   // console.log('query : ', query);
   console.log('req.query.data : ', req.query.data.search_query);
     getMovies(req.query.data.search_query)
-    .then( weatherData => res.status(200).json(weatherData) );
+    .then( moviesDate => res.status(200).json(moviesDate) );
 
 }
 
@@ -155,6 +156,45 @@ function parseData(data){
   }
 }
 
+
+
+function yelpHandler(req,res){
+  // console.log('req : ', req);
+  // console.log('query : ', query);
+  console.log('req.query.data : ', req.query.data.search_query);
+  getYelp(req.query.data.search_query)
+  .then( yelpDate => res.status(200).json(yelpDate) );
+
+}
+
+
+
+
+
+function getYelp(location){
+const url = `https://api.yelp.com/v3/businesses/search?location=${location}`;
+return superagent.get(url)
+  .set('Authorization',`Bearer${process.env.YELP}`)
+  .then( data => {
+    parseDataYelp(data.body);
+  });
+
+}
+
+function parseDataYelp(data){
+try{
+// console.log('data : ', data.results);
+const movies= data.results.map((movie)=>{
+  let moviesObg =new Yelp(movie)
+  console.log('yelp : ', moviesObg);
+  return moviesObg;
+});
+return Promise.resolve(movies);
+
+}catch(e){return Promise.reject(e);
+}
+}
+
 // console.log('data : ', eventA);
 // return eventA.events.event.map( (day) => {
 //     console.log({day});
@@ -162,7 +202,6 @@ function parseData(data){
 // });
 
 function Movies(movie){
-  this.tableName='movies';
   this.title=movie.title;
   this.overview=movie.overview;
   this.average_votes=movie.vote_average;
@@ -173,6 +212,16 @@ function Movies(movie){
 }
 
 
+
+
+function Yelp(){
+  this.name=business.name;
+  this.image_url=business.image_url;
+  this.price=business.price;
+  this.rating=business.rating;
+  this.url=business.url;
+
+}
 
 
 
