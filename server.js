@@ -97,7 +97,10 @@ function Weather(day) {
 function eventHandler(req,res) {
     // Query String = ?a=b&c=d
     getEvent(req.query.data.search_query)
-      .then( eventData => res.status(200).json(eventData) );
+      .then( eventData => {
+        // console.log('eventData : ', eventData);
+      return res.status(200).json(eventData)
+      } );
   
   }
   
@@ -129,32 +132,23 @@ function moviesHandler(req,res){
   // console.log('query : ', query);
   console.log('req.query.data : ', req.query.data.search_query);
     getMovies(req.query.data.search_query)
-    .then( moviesDate => res.status(200).json(moviesDate) );
+    .then( moviesData => {
+      // console.log('moviesData : ', moviesData);
+      return res.status(200).json(moviesData) 
+    });
 
 }
 
 function getMovies(location){
-    const url = `https://api.themoviedb.org/3/search/movie/?api_key=${process.env.MOVIES_KEY}&query=${location}`;
+    const url = `https://api.themoviedb.org/3/search/movie/?api_key=${process.env.MOVIE_API_KEY}&query=${location}`;
     return superagent.get(url)
       .then( data => {
-        parseData(data.body);
+        let movies = data.body.results;
+        return movies.map( (movi) => {
+          return new Movies(movi);
       });
 
-}
-
-function parseData(data){
-  try{
-    // console.log('data : ', data.results);
-    const movies= data.results.map((movie)=>{
-      let moviesObg =new Movies(movie)
-      console.log('movie : ', moviesObg);
-      return moviesObg;
-    });
-    return Promise.resolve(movies);
-
-  }catch(e){return Promise.reject(e);
-  }
-}
+})}
 
 
 
@@ -163,58 +157,41 @@ function yelpHandler(req,res){
   // console.log('query : ', query);
   console.log('req.query.data : ', req.query.data.search_query);
   getYelp(req.query.data.search_query)
-  .then( yelpDate => res.status(200).json(yelpDate) );
+  .then( yelpData => {
+    console.log('yelpData : ', yelpData);
+   return res.status(200).json(yelpData) ;
+  });
 
 }
-
-
-
 
 
 function getYelp(location){
 const url = `https://api.yelp.com/v3/businesses/search?location=${location}`;
 return superagent.get(url)
-  .set('Authorization',`Bearer${process.env.YELP}`)
+  .set('Authorization',`Bearer ${process.env.YELP_API_KEY}`)
   .then( data => {
-    parseDataYelp(data.body);
+    let yelp = data.body.businesses;
+    console.log('yelp : ', yelp);
+        return yelp.map( (yelp) => {
+          return new Yelp(yelp);
+      });
   });
 
 }
 
-function parseDataYelp(data){
-try{
-// console.log('data : ', data.results);
-const movies= data.results.map((movie)=>{
-  let moviesObg =new Yelp(movie)
-  console.log('yelp : ', moviesObg);
-  return moviesObg;
-});
-return Promise.resolve(movies);
-
-}catch(e){return Promise.reject(e);
-}
-}
-
-// console.log('data : ', eventA);
-// return eventA.events.event.map( (day) => {
-//     console.log({day});
-//   return new Event(day);
-// });
 
 function Movies(movie){
   this.title=movie.title;
   this.overview=movie.overview;
   this.average_votes=movie.vote_average;
   this.total_votes=' '
-  this.image_url='https://image.tmdb.org/t/p/w500' + movie&&movie.poster_path;
+  this.image_url=`https://image.tmdb.org/t/p/w500/${movie.poster_path}`
   this.popularity=movie.popularity;
   this.released_on=movie&&movie.release_date;
 }
 
 
-
-
-function Yelp(){
+function Yelp(business){
   this.name=business.name;
   this.image_url=business.image_url;
   this.price=business.price;
