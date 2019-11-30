@@ -6,12 +6,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const superagent = require('superagent');
-
+const pg = require('pg');
 const PORT = process.env.PORT || 3000;
 
 const app = express();
 
 app.use( cors() );
+
+// Database Connection Setup
+const client = new pg.Client(process.env.DATABASE_URL);
+client.on('error', err => { throw err; });
 
 /// from modules
 
@@ -23,6 +27,42 @@ app.use( cors() );
 // const trails=require('./mudules/trails.js');
 // const movies=require('./mudules/movies.js');
 
+// Add geo, based on QueryString Params
+app.get('/add', addToDataBase)
+
+function addToDataBase(request, response) {
+  let city = request.query.search_query;
+  let formatted = request.query.formatted_query;
+  let lati = request.query.latitude;
+  let lngi = request.query.longitude;
+  let SQL = 'INSERT INTO geo (search_query ,formatted_query,latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING *';
+  let safeValues = [city, formatted, lati, lngi];
+  client.query(SQL, safeValues)
+    .then(results => {
+      response.status(200).json(results);
+    })
+    .catch(error => errorHandler(error));
+};
+
+
+// SHOW everything in the database
+
+app.get('/cities', showTable);
+
+
+function showTable(request,response){
+  let SQL = 'SELECT * FROM geo';
+  
+  client.query(SQL)
+    .then(results => {
+      response.status(200).json(results.rows);
+      // let obj=results.rows;
+      // console.log('obj : ', obj);
+    })
+    .catch(error => errorHandler(error));
+}
+
+
 
 
 // make the the callBack function a seprate fuctions :locationHandler,weatherHandler
@@ -30,27 +70,56 @@ app.use( cors() );
 app.get('/location', locationHandler);
 app.get('/weather', weatherHandler);
 app.get('/events',eventHandler);
-// app.get('/yelp',yelpHandler);
-// app.get('/trails',trailsHandler);
 app.get('/movies',moviesHandler);
 app.get('/yelp',yelpHandler)
 
-function locationHandler(req,res) {
+function locationHandler(request, response) {
   // Query String = ?a=b&c=d
-  getLocation(req.query.data)
-    .then( (locationData) => res.status(200).json(locationData) );
+let city=request.query.data;
+  console.log(' request.query.data: ',request.query.data )
+  
+  let SQL = 'SELECT * FROM geo WHERE search_query = $1 ;';
+ let values=[city];
+ client.query(SQL,values)
+ .then(results=>{
+   console.log('is it in database?: ', results.rowCount);
+   if (results.rowCount) { 
+    
+    return response.status(200).json(results.rows[0]);
+    }
+   else {getLocation(city,response)
+  // .then(data=> response.status(200).json(data))
+  return newCity;
+  }
+ })
+   
 }
 
-function getLocation(city) {
-  // No longer get from file
-  // let data = require('./data/geo.json');
+function getLocation(city,response) {
+  
 
-  // Get it from Google Directly`
+
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${city}&key=${process.env.API}`
+  superagent.get(url)
+    .then(data => {
+      console.log('data from url : ', data.body);
+      let newCity = new Location(city, data.body)
+      // add to database
+      console.log('newCity : ', newCity);
+      let SQL = 'INSERT INTO geo (search_query ,formatted_query,latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING *';
+      let safeValues = [newCity.search_query, newCity.formatted_query, newCity.latitude, newCity.longitude];
+      client.query(SQL, safeValues)
+        .then(results => {
+          console.log('from database after add it directly: ', results.rows);
+          return response.status(200).json(results.rows[0]);
+           
 
-  return superagent.get(url)
-    .then( data => {
-      return new Location(city, data.body);
+
+         })
+        .catch(error => errorHandler(error));
+
+        //////
+        return newCity;
     })
 
 }
@@ -208,4 +277,16 @@ app.use('*', (req,res) => {
   res.status(404).send('NOT FOUND!');
 });
 
-app.listen( PORT, () => console.log('hello world, from port', PORT));
+
+
+// Connect to DB and THEN Start the Web Server
+client.connect()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log('Server up on', PORT);
+    });
+  })
+  .catch(err => {
+    throw `PG Startup Error: ${err.message}`;
+  });
+
